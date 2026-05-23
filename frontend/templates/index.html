@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NetScope | Network Sniffer & Analyzer Console</title>
+    
+    <!-- SocketIO & ChartJS -->
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+    <div class="container">
+        <!-- HEADER -->
+        <header>
+            <div class="title-container">
+                <h1 class="glow-text">NetScope Analyzer</h1>
+                <div class="status-badge connected" id="connectionStatus">
+                    <span class="status-dot"></span>
+                    <span id="connectionText">Sniffing Live</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- CONTROL DECK -->
+        <div class="control-deck">
+            <div class="search-wrapper">
+                <input type="text" id="searchInput" placeholder="Filter by IP, Protocol, Port or Length...">
+            </div>
+            
+            <div class="action-buttons">
+                <button id="toggleBtn" class="btn btn-primary" onclick="toggleSniffing()">
+                    ⏸ Pause Sniffer
+                </button>
+                <button class="btn btn-secondary" onclick="clearTable()">
+                    🧹 Clear Table
+                </button>
+                <button class="btn btn-secondary" onclick="exportCSV()">
+                    📥 Export CSV
+                </button>
+            </div>
+        </div>
+
+        <!-- STATS CARD GRID -->
+        <div class="stats-grid">
+            <div class="metric-card total">
+                <div class="metric-header">
+                    <span>Total Packets</span>
+                    <span class="dot"></span>
+                </div>
+                <div class="metric-value" id="totalPackets">0</div>
+            </div>
+            
+            <div class="metric-card tcp">
+                <div class="metric-header">
+                    <span>TCP Segment</span>
+                    <span class="dot"></span>
+                </div>
+                <div class="metric-value" id="tcpCount">0</div>
+            </div>
+            
+            <div class="metric-card udp">
+                <div class="metric-header">
+                    <span>UDP Datagram</span>
+                    <span class="dot"></span>
+                </div>
+                <div class="metric-value" id="udpCount">0</div>
+            </div>
+            
+            <div class="metric-card icmp">
+                <div class="metric-header">
+                    <span>ICMP Ping</span>
+                    <span class="dot"></span>
+                </div>
+                <div class="metric-value" id="icmpCount">0</div>
+            </div>
+            
+            <div class="metric-card arp">
+                <div class="metric-header">
+                    <span>ARP Request</span>
+                    <span class="dot"></span>
+                </div>
+                <div class="metric-value" id="arpCount">0</div>
+            </div>
+        </div>
+
+        <!-- CENTRAL SPLIT GRID -->
+        <div class="content-grid">
+            <!-- GRAPH CARD -->
+            <div class="panel-card">
+                <div class="panel-header">
+                    <div class="panel-title">Real-Time Traffic Activity</div>
+                </div>
+                <div class="chart-wrapper">
+                    <canvas id="trafficChart"></canvas>
+                </div>
+            </div>
+
+            <!-- SECURITY ALERT LOG -->
+            <div class="panel-card">
+                <div class="panel-header">
+                    <div class="panel-title" style="color: var(--color-other);">Threat Intelligence Logs</div>
+                </div>
+                <div class="alert-container" id="alertContainer">
+                    <div class="empty-alerts" id="emptyAlerts">
+                        🔒 No security anomalies detected.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TABLE SECTION -->
+        <div class="table-panel">
+            <div class="panel-header">
+                <div class="panel-title">Recent Telemetry Streams</div>
+            </div>
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Protocol</th>
+                            <th>Source IP</th>
+                            <th>Destination IP</th>
+                            <th>Source Port</th>
+                            <th>Destination Port</th>
+                            <th>Length (B)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="packetTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- SIDE DETAILS DRAWER -->
+    <div class="overlay" id="overlay" onclick="closeDrawer()"></div>
+    <div class="drawer" id="packetDrawer">
+        <div class="drawer-header">
+            <div class="drawer-title" id="drawerTitle">Packet Insights</div>
+            <button class="drawer-close" onclick="closeDrawer()">&times;</button>
+        </div>
+        <div class="drawer-body">
+            <div class="drawer-section">
+                <div class="drawer-section-title">Core Headers</div>
+                <div class="data-group">
+                    <span class="data-label">Protocol</span>
+                    <span class="data-value" id="detailProtocol">-</span>
+                </div>
+                <div class="data-group">
+                    <span class="data-label">Packet Size</span>
+                    <span class="data-value" id="detailLength">-</span>
+                </div>
+            </div>
+
+            <div class="drawer-section">
+                <div class="drawer-section-title">Network Routing</div>
+                <div class="data-group">
+                    <span class="data-label">Source IP</span>
+                    <span class="data-value" id="detailSrcIP">-</span>
+                </div>
+                <div class="data-group">
+                    <span class="data-label">Destination IP</span>
+                    <span class="data-value" id="detailDstIP">-</span>
+                </div>
+                <div class="data-group">
+                    <span class="data-label">Source Port</span>
+                    <span class="data-value" id="detailSrcPort">-</span>
+                </div>
+                <div class="data-group">
+                    <span class="data-label">Destination Port</span>
+                    <span class="data-value" id="detailDstPort">-</span>
+                </div>
+            </div>
+
+            <div class="drawer-section">
+                <div class="drawer-section-title">Geolocation Intelligence</div>
+                <div class="data-group">
+                    <span class="data-label">Country</span>
+                    <span class="data-value" id="detailCountry">-</span>
+                </div>
+                <div class="data-group">
+                    <span class="data-label">City</span>
+                    <span class="data-value" id="detailCity">-</span>
+                </div>
+                <div class="data-group">
+                    <span class="data-label">ISP Network</span>
+                    <span class="data-value" id="detailISP">-</span>
+                </div>
+            </div>
+
+            <div class="drawer-section">
+                <div class="drawer-section-title">Threat Assessment</div>
+                <div id="threatStatusBanner" class="threat-banner clean">
+                    🛡️ Clean Packet: No intrusion signatures matched.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stylesheet injection -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <!-- Custom scripts -->
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>
