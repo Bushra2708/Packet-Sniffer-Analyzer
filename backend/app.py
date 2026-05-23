@@ -1,3 +1,16 @@
+import os
+
+# Perform monkey patching if running on Render or if eventlet is available
+async_mode = "threading"
+if os.environ.get("RENDER") or os.environ.get("USE_EVENTLET"):
+    try:
+        import eventlet
+        eventlet.monkey_patch()
+        async_mode = "eventlet"
+        print("Production environment (Render/Eventlet) detected. Using Eventlet async mode.")
+    except ImportError:
+        print("Eventlet not installed. Falling back to default async mode.")
+
 from flask import Flask, render_template, send_file
 from flask_socketio import SocketIO
 
@@ -24,7 +37,7 @@ app = Flask(
 socketio = SocketIO(
     app,
     cors_allowed_origins="*",
-    async_mode="threading"
+    async_mode=async_mode
 )
 
 # ==========================
@@ -83,10 +96,13 @@ if __name__ == "__main__":
 
     sniff_thread.start()
 
+    port = int(os.environ.get("PORT", 5000))
+    debug_mode = not os.environ.get("RENDER")
+
     socketio.run(
         app,
         host="0.0.0.0",
-        port=5000,
-        debug=True,
+        port=port,
+        debug=debug_mode,
         allow_unsafe_werkzeug=True
     )
