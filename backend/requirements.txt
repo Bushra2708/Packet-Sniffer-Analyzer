@@ -4,3 +4,5 @@ scapy
 pandas
 requests
 geoip2
+gunicorn
+eventlet
